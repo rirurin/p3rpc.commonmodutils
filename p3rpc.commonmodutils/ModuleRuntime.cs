@@ -1,6 +1,8 @@
 ﻿using Reloaded.Mod.Interfaces;
 using System.Reflection;
 
+#pragma warning disable CS1591
+
 namespace p3rpc.commonmodutils
 {
     public class ModuleRuntime<TContext> where TContext : Context

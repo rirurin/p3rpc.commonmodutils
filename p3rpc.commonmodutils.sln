@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "p3rpc.commonmodutils", "p3rpc.commonmodutils\p3rpc.commonmodutils.csproj", "{69589CA5-329E-45BB-A22A-B0BBE49C4A85}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "p3rpc.commonmodutils", "p3rpc.commonmodutils\p3rpc.commonmodutils.csproj", "{69589CA5-329E-45BB-A22A-B0BBE49C4A85}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharedScans.Interfaces", "..\p3rpc.nativetypes\include\SharedScans\SharedScans.Interfaces\SharedScans.Interfaces.csproj", "{21AB7495-246B-4613-8C75-45297243E05F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{69589CA5-329E-45BB-A22A-B0BBE49C4A85}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{69589CA5-329E-45BB-A22A-B0BBE49C4A85}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{69589CA5-329E-45BB-A22A-B0BBE49C4A85}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21AB7495-246B-4613-8C75-45297243E05F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21AB7495-246B-4613-8C75-45297243E05F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21AB7495-246B-4613-8C75-45297243E05F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21AB7495-246B-4613-8C75-45297243E05F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

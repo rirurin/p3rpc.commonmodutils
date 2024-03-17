@@ -8,6 +8,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+#pragma warning disable CS1591
+
 namespace p3rpc.commonmodutils
 {
     public class Utils
@@ -49,6 +51,13 @@ namespace p3rpc.commonmodutils
                 Log($"Found {name} at 0x{addr:X}");
                 hookerCb((long)addr);
             });
+        }
+
+        // Used to run callbacks for signatures scanned using SharedScans, usually ones that are shared with multiple mods
+        public void AfterSigScan(nint addr, Func<int, nuint> transformCb, Action<long> hookerCb)
+        {
+            var addrTransformed = transformCb((int)(addr - _baseAddress));
+            hookerCb((long)addrTransformed);
         }
         public void Log(string text) => _logger.WriteLineAsync($"[{_name}] {text}", _color);
         public nuint GetDirectAddress(int offset) => (nuint)(_baseAddress + offset);

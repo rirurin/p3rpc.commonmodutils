@@ -1,6 +1,8 @@
 ﻿using Reloaded.Memory;
 using Reloaded.Memory.Interfaces;
 
+#pragma warning disable CS1591
+
 namespace p3rpc.commonmodutils
 {
     public class AddressToMemoryWrite

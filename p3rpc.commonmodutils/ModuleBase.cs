@@ -1,5 +1,7 @@
 ﻿using Reloaded.Mod.Interfaces;
 
+#pragma warning disable CS1591
+
 namespace p3rpc.commonmodutils
 {
     public abstract class ModuleBase<TContext> where TContext : Context
