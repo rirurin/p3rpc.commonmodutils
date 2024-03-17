@@ -85,12 +85,22 @@ jobs:
         path: |
           ${{ env.NUGET_RELEASE_PATH }}/*
 
+    - name: Upload Changelog Artifact
+      uses: actions/upload-artifact@v2.2.4
+      with:
+        # Artifact name
+        name: Changelog
+        # A file, directory or wildcard pattern that describes what to upload
+        path: ${{ env.CHANGELOG_PATH }}
+        retention-days: 0
+
     - name: Upload to GitHub Releases (on Tag)
       uses: softprops/action-gh-release@v0.1.14
       if: env.IS_RELEASE == 'true'
       with:
         body_path: ${{ env.CHANGELOG_PATH }}
-        files: ${{ env.GITHUB_RELEASE_PATH }}/*
+        files: |
+          ${{ env.GITHUB_RELEASE_PATH }}/*
 
     - name: Push to NuGet (on Tag)
       env: 
