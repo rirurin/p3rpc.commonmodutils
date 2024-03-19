@@ -25,7 +25,7 @@ namespace p3rpc.commonmodutils
             return (TModule)module;
         }
 
-        public virtual void OnConfigUpdated(IConfigurable newConfig) => _context._config = newConfig;
+        public virtual void OnConfigUpdated(IConfigurable newConfig) => _context.OnConfigUpdated(newConfig);
     }
 
     public abstract class ModuleAsmInlineColorEdit<TContext> : ModuleBase<TContext> where TContext : Context

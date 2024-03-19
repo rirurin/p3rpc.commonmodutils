@@ -11,6 +11,13 @@ namespace p3rpc.commonmodutils
 {
     public class ConfigColor
     {
+        // Basic Color Presets
+        public static readonly ConfigColor White = new ConfigColor(0xff, 0xff, 0xff, 0xff);
+        public static readonly ConfigColor Black = new ConfigColor(0x0,  0x0,  0x0,  0xff);
+        public static readonly ConfigColor Red =   new ConfigColor(0xff, 0x0,  0x0,  0xff);
+        public static readonly ConfigColor Green = new ConfigColor(0x0,  0xff, 0x0,  0xff);
+        public static readonly ConfigColor Blue =  new ConfigColor(0x0,  0x0,  0xff, 0xff);
+
         // Color Presets - For Femc Reloaded Project
         // https://github.com/MadMax1960/Femc-Reloaded-Project
         public static readonly ConfigColor LightColor = new ConfigColor(0xff, 0xbf, 0xfc, 0xff);
