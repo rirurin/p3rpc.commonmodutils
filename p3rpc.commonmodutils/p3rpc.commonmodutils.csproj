@@ -14,7 +14,7 @@
     <PackageId>p3rpc.commonmodutils</PackageId>
 	  
 	<!-- Use Semantic Versioning -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Rirurin</Authors>
 	
 	<!-- Description of your Package -->
@@ -29,7 +29,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="p3rpc.nativetypes.Interfaces" Version="1.1.2" />
+    <PackageReference Include="p3rpc.nativetypes.Interfaces" Version="1.2.0" />
     <PackageReference Include="Reloaded.Memory" Version="9.4.1" />
     <PackageReference Include="Reloaded.Memory.SigScan.ReloadedII.Interfaces" Version="1.2.0" />
     <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" />
