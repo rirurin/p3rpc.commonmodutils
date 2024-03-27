@@ -60,6 +60,7 @@ namespace p3rpc.commonmodutils
             hookerCb((long)addrTransformed);
         }
         public void Log(string text) => _logger.WriteLineAsync($"[{_name}] {text}", _color);
+        public void Log(string text, Color customColor) => _logger.WriteLineAsync($"[{_name}] {text}", customColor);
         public nuint GetDirectAddress(int offset) => (nuint)(_baseAddress + offset);
         public nuint GetIndirectAddressShort(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 1);
         public nuint GetIndirectAddressShort2(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 2);
