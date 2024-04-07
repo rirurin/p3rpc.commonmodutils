@@ -69,6 +69,10 @@ namespace p3rpc.commonmodutils
         public IHook<T> MakeHooker<T>(T delegateMethod, long address) => _hooks.CreateHook(delegateMethod, address).Activate();
         public T MakeWrapper<T>(long address) => _hooks.CreateWrapper<T>(address, out _);
 
+        // RCX, RDX, R8, R9
+        public string PreserveMicrosoftRegisters() => $"push rcx\npush rdx\npush r8\npush r9";
+        public string RetrieveMicrosoftRegisters() => $"pop r9\npop r8\npop rdx\npop rcx";
+
         // Pushes the value of an xmm register to the stack, saving it so it can be restored with PopXmm
         public static string PushXmm(int xmmNum)
         {

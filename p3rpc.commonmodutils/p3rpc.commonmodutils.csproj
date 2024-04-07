@@ -14,7 +14,7 @@
     <PackageId>p3rpc.commonmodutils</PackageId>
 	  
 	<!-- Use Semantic Versioning -->
-    <Version>1.2.1</Version>
+    <Version>1.2.2</Version>
     <Authors>Rirurin</Authors>
 	
 	<!-- Description of your Package -->
