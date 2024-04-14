@@ -41,7 +41,7 @@ namespace p3rpc.commonmodutils
         public virtual void OnConfigUpdated(IConfigurable newConfig) => _config = newConfig;
     }
 
-    // For Unreal Engine games (Persona 3 Reload, future UE Atlus games)
+    // For Unreal Engine games (Persona 3 Reload, SMTVV, Persona 6 etc.)
     public class UnrealContext : Context
     {
         // "We have UE4SS at home"
@@ -112,6 +112,7 @@ namespace p3rpc.commonmodutils
         private Dictionary<string, List<Action<nint>>> _objectListeners = new();
         private IHook<ICommonMethods.GetPrivateStaticClassBody> _staticClassBody;
         private Dictionary<string, nint> _classNameToType = new();
+        private Dictionary<string, UnrealClassExtender> _classNameToClassExtender = new();
         protected nuint TransformAddressForFUObjectArray(int offset) => Utils.GetGlobalAddress((nint)(_baseAddress + offset + 3)) - 0x10;
         public UnrealContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner,
             IReloadedHooks hooks, string modLocation, Utils utils, Memory memory, ISharedScans sharedScans)
@@ -292,6 +293,8 @@ namespace p3rpc.commonmodutils
             return newObj;
         }
 
+        // Scuffed Unreal class manipulation
+
         private unsafe void GetPrivateStaticClassBodyImpl(
             nint packageName,
             nint name,
@@ -303,18 +306,72 @@ namespace p3rpc.commonmodutils
             ulong castFlags,
             nint config,
             nint inClassCtor,
-            nint vtableHelperCtorCaller,
-            nint addRefObjects,
-            nint superFn,
-            nint withinFn,
+            nint vtableHelperCtorCaller, // xor eax,eax, ret
+            nint addRefObjects, // ret
+            nint superFn, // [superType]::StaticClass
+            nint withinFn, // usually UObject::StaticClass
             byte isDynamic,
             nint dynamicFn)
         {
+            var className = Marshal.PtrToStringUni(name);
+            if (className != null && _classNameToClassExtender.TryGetValue(className, out var classExtender))
+            {
+                // change size
+                if (size <= classExtender.Size)
+                {
+                    _utils.Log($"NOTICE: Extended size of class \"{className}\" (from {size} to {classExtender.Size})");
+                    size = classExtender.Size;
+                }
+                else _utils.Log($"ERROR: Class extender for \"{className}\" has defined size smaller than original class (from {size} to {classExtender.Size}). This has been rejected.");
+                // hook ctor
+                if (classExtender.CtorHook != null && inClassCtor != 0)
+                {
+                    var newHook = FollowThunkToGetAppropriateHook(inClassCtor, classExtender.CtorHook);
+                    classExtender.CtorHookReal = newHook;
+                    //if (classExtender.OnMakeHookCb != null) classExtender.OnMakeHookCb(newHook);
+                    //else _utils.Log($"ERROR: Hook was not saved. Game will likely crash.");
+                }
+            }
             _staticClassBody.OriginalFunction(packageName, name, returnClass, registerNativeFunc, size, align, flags, castFlags, 
                 config, inClassCtor, vtableHelperCtorCaller, addRefObjects, superFn, withinFn, isDynamic, dynamicFn);
-            var className = Marshal.PtrToStringUni(name);
             if (className != null)
                 _classNameToType.Add(className, *(nint*)returnClass);
+        }
+
+        public unsafe IHook<UnrealClassExtender.InternalConstructor> FollowThunkToGetAppropriateHook
+            (nint addr, UnrealClassExtender.InternalConstructor ctorHook)
+        {
+            // build a new multicast delegate by injecting the native function, followed by custom code
+            // this reference will live for program's lifetime so there's no need to store hook in the caller
+            IHook<UnrealClassExtender.InternalConstructor>? retHook = null;
+            UnrealClassExtender.InternalConstructor ctorHookReal = x =>
+            {
+                if (retHook == null)
+                {
+                    _utils.Log($"ERROR: retHook is null. Game will crash.");
+                    return;
+                }
+                retHook.OriginalFunction(x);
+                _utils.Log($"test hook from ctor! {*(nint*)x:X} (vtable {**(nint**)x:X})");
+            };
+            ctorHookReal += ctorHook;
+            retHook = _hooks.CreateHook(ctorHookReal, addr).Activate();
+            return retHook;
+        }
+
+        // This should be done on during module ctor, which will run before any Unreal Engine code runs
+        public unsafe void AddUnrealClassExtender
+            (string targetClass, uint newSize, 
+            UnrealClassExtender.InternalConstructor? ctorHook = null, // called when UE runs InternalConstructor_[TARGET_CLASS_NAME]
+            Action<IHook<UnrealClassExtender.InternalConstructor>>? onMakeHook = null) // for the caller to store the created hook
+            => _classNameToClassExtender.Add(targetClass, new UnrealClassExtender(newSize, ctorHook));
+
+        // UObject::vtable - 78 methods
+        // AActor::vtable, AAppActor::vtable - 199 methods
+        public unsafe nint CreateNewClass(string name, string super, int methods)
+        {
+            UClass* superClass = GetType(super);
+            return superClass->class_default_obj->_vtable;
         }
     }
 }
