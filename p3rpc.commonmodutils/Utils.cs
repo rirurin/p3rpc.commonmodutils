@@ -1,17 +1,21 @@
 ﻿using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 #pragma warning disable CS1591
 
 namespace p3rpc.commonmodutils
 {
+    public enum LogLevel
+    {
+        Verbose,
+        Debug,
+        Information,
+        Warning,
+        Error
+    }
     public class Utils
     {
         private IStartupScanner _startupScanner;
@@ -20,8 +24,9 @@ namespace p3rpc.commonmodutils
         private long _baseAddress;
         private string _name;
         private Color _color;
+        private LogLevel _logLevel;
 
-        public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color)
+        public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
         {
             _startupScanner = startupScanner;
             _hooks = hooks;
@@ -29,6 +34,7 @@ namespace p3rpc.commonmodutils
             _logger = logger;
             _name = name;
             _color = color != null ? color.Value : Color.White;
+            _logLevel = logLevel;
         }
 
         /// <summary>
@@ -59,8 +65,11 @@ namespace p3rpc.commonmodutils
             var addrTransformed = transformCb((int)(addr - _baseAddress));
             hookerCb((long)addrTransformed);
         }
-        public void Log(string text) => _logger.WriteLineAsync($"[{_name}] {text}", _color);
-        public void Log(string text, Color customColor) => _logger.WriteLineAsync($"[{_name}] {text}", customColor);
+        // Log defaults to a verbosity level of LogLevel.Information
+        public void Log(string text) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
+        public void Log(string text, Color customColor) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
+        public void Log(string text, LogLevel verbosity) { if (verbosity >= _logLevel) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
+        public void Log(string text, Color customColor, LogLevel verbosity) { if (verbosity >= _logLevel) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
         public nuint GetDirectAddress(int offset) => (nuint)(_baseAddress + offset);
         public nuint GetIndirectAddressShort(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 1);
         public nuint GetIndirectAddressShort2(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 2);

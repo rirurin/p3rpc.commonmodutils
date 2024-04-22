@@ -1,12 +1,10 @@
-﻿using p3rpc.nativetypes.Interfaces;
-using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
+﻿using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Memory;
 using Reloaded.Mod.Interfaces;
 using Reloaded.Hooks.Definitions;
 using SharedScans.Interfaces;
-using System.Data;
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
+using Unreal.ClassConstructor.Interfaces;
+using Unreal.NativeTypes.Interfaces;
 
 #pragma warning disable CS1591
 
@@ -44,199 +42,41 @@ namespace p3rpc.commonmodutils
     // For Unreal Engine games (Persona 3 Reload, SMTVV, Persona 6 etc.)
     public class UnrealContext : Context
     {
-        // "We have UE4SS at home"
-        // UE4SS at home:
-        public abstract class FindObjectBase
-        {
-            protected UnrealContext Context { get; init; }
-            public FindObjectBase(UnrealContext context) { Context = context; }
-            public abstract void Execute();
-        }
-        public class FindObjectByName : FindObjectBase
-        {
-            public string ObjectName { get; set; }
-            public string? TypeName { get; set; }
-            public Action<nint> FoundObjectCallback { get; set; } // Action<UObject*>
-            public FindObjectByName(UnrealContext context, string objectName, string? typeName, Action<nint> foundCb)
-                : base(context)
-            {
-                ObjectName = objectName;
-                TypeName = typeName;
-                FoundObjectCallback = foundCb;
-            }
-            public unsafe override void Execute()
-            {
-                var foundObj = Context.FindObject(ObjectName, TypeName);
-                if (foundObj != null) FoundObjectCallback((nint)foundObj);
-            }
-        }
-        public class FindObjectFirstOfType : FindObjectBase
-        {
-            public string TypeName { get; set; }
-            public Action<nint> FoundObjectCallback { get; set; }
-            public FindObjectFirstOfType(UnrealContext context, string typeName, Action<nint> foundCb)
-                : base(context)
-            {
-                TypeName = typeName;
-                FoundObjectCallback = foundCb;
-            }
-            public unsafe override void Execute()
-            {
-                var foundObj = Context.FindFirstOf(TypeName);
-                if (foundObj != null) FoundObjectCallback((nint)foundObj);
-            }
-        }
-        public class FindObjectAllOfType : FindObjectBase
-        {
-            public string TypeName { get; set; }
-            public Action<ICollection<nint>> FoundObjectCallback { get; set; }
-            public FindObjectAllOfType(UnrealContext context, string typeName, Action<ICollection<nint>> foundCb)
-                : base(context)
-            {
-                TypeName = typeName;
-                FoundObjectCallback = foundCb;
-            }
-            public unsafe override void Execute()
-            {
-                var foundObj = Context.FindAllOf(TypeName);
-                if (foundObj != null) FoundObjectCallback(foundObj);
-            }
-        }
-        public unsafe FNamePool* g_namePool { get; private set; }
-        public unsafe FUObjectArray* g_objectArray { get; private set; }
-        private Thread _findObjectThread { get; init; }
+        private IClassExtender _classExtender;
+        private IClassFactory _classFactory;
+        private IObjectListeners _objectListeners;
+        private IObjectSearch _objectSearch;
+        private IObjectUtilities _objectUtils;
 
-        private BlockingCollection<FindObjectBase> _findObjects = new();
-
-        private IHook<ICommonMethods.StaticConstructObject_Internal> _staticConstructObject;
-        private Dictionary<string, List<Action<nint>>> _objectListeners = new();
-        private IHook<ICommonMethods.GetPrivateStaticClassBody> _staticClassBody;
-        private Dictionary<string, nint> _classNameToType = new();
-        private Dictionary<string, UnrealClassExtender> _classNameToClassExtender = new();
-        protected nuint TransformAddressForFUObjectArray(int offset) => Utils.GetGlobalAddress((nint)(_baseAddress + offset + 3)) - 0x10;
-        public UnrealContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner,
-            IReloadedHooks hooks, string modLocation, Utils utils, Memory memory, ISharedScans sharedScans)
+        // Talk to Unreal.ClassConstructor to access shared resources.
+        public UnrealContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, IReloadedHooks hooks, 
+            string modLocation, Utils utils, Memory memory, ISharedScans sharedScans, IClassExtender classExtender, 
+            IClassFactory classFactory, IObjectListeners objectListeners, IObjectSearch objectSearch, IObjectUtilities objectUtils)
             : base(baseAddress, config, logger, startupScanner, hooks, modLocation, utils, memory, sharedScans)
         {
-            unsafe
-            {
-                _sharedScans.CreateListener("FUObjectArray", addr => _utils.AfterSigScan(addr, TransformAddressForFUObjectArray, addr => g_objectArray = (FUObjectArray*)addr));
-                _sharedScans.CreateListener("FGlobalNamePool", addr => _utils.AfterSigScan(addr, _utils.GetIndirectAddressLong, addr => g_namePool = (FNamePool*)addr));
-                _sharedScans.CreateListener("StaticConstructObject_Internal", addr => _utils.AfterSigScan(addr, _utils.GetDirectAddress, addr => _staticConstructObject = _utils.MakeHooker<ICommonMethods.StaticConstructObject_Internal>(StaticConstructObject_InternalImpl, addr)));
-                _sharedScans.CreateListener("GetPrivateStaticClassBody", addr => _utils.AfterSigScan(addr, _utils.GetDirectAddress, addr => _staticClassBody = _utils.MakeHooker<ICommonMethods.GetPrivateStaticClassBody>(GetPrivateStaticClassBodyImpl, addr)));
-            }
-            _findObjectThread = new Thread(new ThreadStart(ProcessObjectQueue));
-            _findObjectThread.IsBackground = true;
-            _findObjectThread.Start();
+            _classExtender = classExtender;
+            _classFactory = classFactory;
+            _objectListeners = objectListeners;
+            _objectSearch = objectSearch;
+            _objectUtils = objectUtils;
         }
-        public unsafe string GetFName(FName name) => g_namePool->GetString(name);
-        public unsafe string GetObjectName(UObject* obj) => g_namePool->GetString(obj->NamePrivate);
-
-        private unsafe string GetPathName(UObject* obj, UObject* end)
-        {
-            var path = GetObjectName(obj);
-            if (obj->OuterPrivate != null)
-            {
-                var separator = obj == end ? ":" : ".";
-                path = $"{GetPathName(obj->OuterPrivate, end)}{separator}{path}";
-            }
-            return path;
-        }
-        public unsafe string GetFullName(UObject* obj) // path name used throughout UE4SS
-        {
-            return obj->OuterPrivate != null ? GetPathName(obj, obj) : GetObjectName(obj);
-        }
-        public unsafe string GetObjectType(UObject* obj) => g_namePool->GetString(((UObject*)obj->ClassPrivate)->NamePrivate);
-        public unsafe UClass* GetType(string type) => (UClass*)FindObject(type, "Class");
-        public unsafe void GetTypeAsync(string type, Action<nint> foundCb) => FindObjectAsync(type, "Class", foundCb);
-        public unsafe bool IsObjectSubclassOf(UObject* obj, UClass* type)
-        {
-            var currType = obj->ClassPrivate;
-            while (currType != null)
-            {
-                if (g_namePool->GetString(((UObject*)currType)->NamePrivate).Equals("Object")) break; // UObject is base type
-                if (((UObject*)currType)->NamePrivate.Equals(((UObject*)type)->NamePrivate))
-                    return true;
-                currType = (UClass*)currType->_super.super_struct;
-            }
-            return false;
-        }
-        private unsafe bool DoesNameMatch(UObject* tgtObj, string name) => g_namePool->GetString(tgtObj->NamePrivate).Equals(name);
-        private unsafe bool DoesClassMatch(UObject* tgtObj, string name) => g_namePool->GetString(((UObject*)tgtObj->ClassPrivate)->NamePrivate).Equals(name);
-        private unsafe void ForEachObject(Action<nint> objItem)
-        {
-            for (int i = 0; i < g_objectArray->NumElements; i++)
-            {
-                var currObj = &g_objectArray->Objects[i >> 0x10][i & 0xffff];
-                if (currObj->Object == null || (currObj->Flags & EInternalObjectFlags.Unreachable) != 0) continue;
-                objItem((nint)currObj);
-            }
-        }
-        public unsafe UObject* FindObject(string targetObj, string? objType = null)
-        {
-            UObject* ret = null;
-            ForEachObject(currAddr =>
-            {
-                var currObj = (FUObjectItem*)currAddr;
-                if (DoesNameMatch(currObj->Object, targetObj))
-                {
-                    if (objType == null || DoesClassMatch(currObj->Object, objType))
-                    {
-                        ret = currObj->Object;
-                        return;
-                    }
-                }
-            });
-            return ret;
-        }
-        public unsafe ICollection<nint> FindAllObjectsNamed(string targetObj, string? objType = null)
-        {
-            var objects = new List<nint>();
-            ForEachObject(currAddr =>
-            {
-                var currObj = (FUObjectItem*)currAddr;
-                if (DoesNameMatch(currObj->Object, targetObj))
-                {
-                    if (objType == null || DoesClassMatch(currObj->Object, objType))
-                        objects.Add((nint)currObj->Object);
-                }
-            });
-            return objects;
-        }
-        public unsafe UObject* FindFirstOf(string objType)
-        {
-            UObject* ret = null;
-            ForEachObject(currAddr =>
-            {
-                var currObj = (FUObjectItem*)currAddr;
-                if (DoesClassMatch(currObj->Object, objType))
-                {
-                    ret = currObj->Object;
-                    return;
-                }
-            });
-            return ret;
-        }
-        public unsafe ICollection<nint> FindAllOf(string objType)
-        {
-            var objects = new List<nint>();
-            ForEachObject(currAddr =>
-            {
-                var currObj = (FUObjectItem*)currAddr;
-                if (DoesClassMatch(currObj->Object, objType))
-                    objects.Add((nint)currObj->Object);
-            });
-            return objects;
-        }
+        
+        public unsafe string GetFName(FName name) => _objectUtils.GetFName(name);
+        public unsafe string GetObjectName(UObject* obj) => _objectUtils.GetObjectName(obj);
+        public unsafe string GetFullName(UObject* obj) => _objectUtils.GetFullName(obj);
+        public unsafe string GetObjectType(UObject* obj) => _objectUtils.GetObjectType(obj);
+        public unsafe UClass* GetType(string type) => _objectSearch.GetType(type);
+        public unsafe void GetTypeAsync(string type, Action<nint> foundCb) => _objectSearch.GetTypeAsync(type, foundCb);
+        public unsafe bool IsObjectSubclassOf(UObject* obj, UClass* type) => _objectUtils.IsObjectSubclassOf(obj, type);
+        public unsafe bool DoesNameMatch(UObject* tgtObj, string name) => _objectUtils.DoesNameMatch(tgtObj, name);
+        public unsafe bool DoesClassMatch(UObject* tgtObj, string name) => _objectUtils.DoesClassMatch(tgtObj, name);
         // Convenience functions
-        public unsafe UObject* GetEngineTransient() => FindObject("/Engine/Transient", "Package");
+        public unsafe UObject* GetEngineTransient() => _objectSearch.GetEngineTransient();
         // void cb -> Action<UObject*>
-        public unsafe void NotifyOnNewObject(UClass* type, Action<nint> cb) => NotifyOnNewObject(GetObjectName((UObject*)type), cb);
-        public unsafe void NotifyOnNewObject(string typeName, Action<nint> cb)
-        {
-            if (_objectListeners.TryGetValue(typeName, out var listener)) listener.Add(cb);
-            else _objectListeners.Add(typeName, new() { cb });
-        }
+        public unsafe void NotifyOnNewObject(UClass* type, Action<nint> cb) => _objectListeners.NotifyOnNewObject(type, cb);
+        public unsafe void NotifyOnNewObject(string typeName, Action<nint> cb) => _objectListeners.NotifyOnNewObject(typeName, cb);
+        /*
+        TODO For Unreal.ClassConstructor
         public unsafe UObject* SpawnObject(UClass* type, UObject* owner)
         {
             var objParams = (FStaticConstructObjectParameters*)NativeMemory.AllocZeroed((nuint)sizeof(FStaticConstructObjectParameters));
@@ -269,109 +109,11 @@ namespace p3rpc.commonmodutils
         {
             // TODO: Invoke GMalloc::Free
         }
-        public unsafe void FindObjectAsync(string targetObj, string? objType, Action<nint> foundCb) => _findObjects.Add(new FindObjectByName(this, targetObj, objType, foundCb));
-        public unsafe void FindObjectAsync(string targetObj, Action<nint> foundCb) => FindObjectAsync(targetObj, null, foundCb);
-        public unsafe void FindFirstOfAsync(string objType, Action<nint> foundCb) => _findObjects.Add(new FindObjectFirstOfType(this, objType, foundCb));
-        public unsafe void FindAllOfAsync(string objType, Action<ICollection<nint>> foundCb) => _findObjects.Add(new FindObjectAllOfType(this, objType, foundCb));
-        private void ProcessObjectQueue()
-        {
-            try
-            {
-                while (true)
-                {
-                    if (_findObjects.TryTake(out var currFindObj))
-                        currFindObj.Execute();
-                }
-            } catch (OperationCanceledException) { } // Called during process termination
-        }
+        */
+        public unsafe void FindObjectAsync(string targetObj, string? objType, Action<nint> foundCb) => _objectSearch.FindObjectAsync(targetObj, objType, foundCb);
+        public unsafe void FindObjectAsync(string targetObj, Action<nint> foundCb) => _objectSearch.FindObjectAsync(targetObj, foundCb);
+        public unsafe void FindFirstOfAsync(string objType, Action<nint> foundCb) => _objectSearch.FindFirstOfAsync(objType, foundCb);
+        public unsafe void FindAllOfAsync(string objType, Action<ICollection<nint>> foundCb) => _objectSearch.FindAllOfAsync(objType, foundCb);
 
-        private unsafe UObject* StaticConstructObject_InternalImpl(FStaticConstructObjectParameters* pParams)
-        {
-            var newObj = _staticConstructObject.OriginalFunction(pParams);
-            if (_objectListeners.TryGetValue(GetObjectType(newObj), out var listeners))
-                foreach (var listener in listeners) listener((nint)newObj);
-            return newObj;
-        }
-
-        // Scuffed Unreal class manipulation
-
-        private unsafe void GetPrivateStaticClassBodyImpl(
-            nint packageName,
-            nint name,
-            UClass** returnClass,
-            nint registerNativeFunc,
-            uint size,
-            uint align,
-            uint flags,
-            ulong castFlags,
-            nint config,
-            nint inClassCtor,
-            nint vtableHelperCtorCaller, // xor eax,eax, ret
-            nint addRefObjects, // ret
-            nint superFn, // [superType]::StaticClass
-            nint withinFn, // usually UObject::StaticClass
-            byte isDynamic,
-            nint dynamicFn)
-        {
-            var className = Marshal.PtrToStringUni(name);
-            if (className != null && _classNameToClassExtender.TryGetValue(className, out var classExtender))
-            {
-                // change size
-                if (size <= classExtender.Size)
-                {
-                    _utils.Log($"NOTICE: Extended size of class \"{className}\" (from {size} to {classExtender.Size})");
-                    size = classExtender.Size;
-                }
-                else _utils.Log($"ERROR: Class extender for \"{className}\" has defined size smaller than original class (from {size} to {classExtender.Size}). This has been rejected.");
-                // hook ctor
-                if (classExtender.CtorHook != null && inClassCtor != 0)
-                {
-                    var newHook = FollowThunkToGetAppropriateHook(inClassCtor, classExtender.CtorHook);
-                    classExtender.CtorHookReal = newHook;
-                    //if (classExtender.OnMakeHookCb != null) classExtender.OnMakeHookCb(newHook);
-                    //else _utils.Log($"ERROR: Hook was not saved. Game will likely crash.");
-                }
-            }
-            _staticClassBody.OriginalFunction(packageName, name, returnClass, registerNativeFunc, size, align, flags, castFlags, 
-                config, inClassCtor, vtableHelperCtorCaller, addRefObjects, superFn, withinFn, isDynamic, dynamicFn);
-            if (className != null)
-                _classNameToType.Add(className, *(nint*)returnClass);
-        }
-
-        public unsafe IHook<UnrealClassExtender.InternalConstructor> FollowThunkToGetAppropriateHook
-            (nint addr, UnrealClassExtender.InternalConstructor ctorHook)
-        {
-            // build a new multicast delegate by injecting the native function, followed by custom code
-            // this reference will live for program's lifetime so there's no need to store hook in the caller
-            IHook<UnrealClassExtender.InternalConstructor>? retHook = null;
-            UnrealClassExtender.InternalConstructor ctorHookReal = x =>
-            {
-                if (retHook == null)
-                {
-                    _utils.Log($"ERROR: retHook is null. Game will crash.");
-                    return;
-                }
-                retHook.OriginalFunction(x);
-                _utils.Log($"test hook from ctor! {*(nint*)x:X} (vtable {**(nint**)x:X})");
-            };
-            ctorHookReal += ctorHook;
-            retHook = _hooks.CreateHook(ctorHookReal, addr).Activate();
-            return retHook;
-        }
-
-        // This should be done on during module ctor, which will run before any Unreal Engine code runs
-        public unsafe void AddUnrealClassExtender
-            (string targetClass, uint newSize, 
-            UnrealClassExtender.InternalConstructor? ctorHook = null, // called when UE runs InternalConstructor_[TARGET_CLASS_NAME]
-            Action<IHook<UnrealClassExtender.InternalConstructor>>? onMakeHook = null) // for the caller to store the created hook
-            => _classNameToClassExtender.Add(targetClass, new UnrealClassExtender(newSize, ctorHook));
-
-        // UObject::vtable - 78 methods
-        // AActor::vtable, AAppActor::vtable - 199 methods
-        public unsafe nint CreateNewClass(string name, string super, int methods)
-        {
-            UClass* superClass = GetType(super);
-            return superClass->class_default_obj->_vtable;
-        }
     }
 }
