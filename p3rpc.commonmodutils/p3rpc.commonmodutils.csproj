@@ -33,11 +33,11 @@
     <PackageReference Include="Reloaded.Memory.SigScan.ReloadedII.Interfaces" Version="1.2.0" />
     <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" />
     <PackageReference Include="Reloaded.SharedLib.Hooks" Version="1.9.0" />
+    <PackageReference Include="Unreal.ClassConstructor.Interfaces" Version="1.0.0" />
     <PackageReference Include="Unreal.NativeTypes.Interfaces" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Unreal.ClassConstructor\Unreal.ClassConstructor.Interfaces\Unreal.ClassConstructor.Interfaces.csproj" />
     <ProjectReference Include="..\include\SharedScans\SharedScans.Interfaces\SharedScans.Interfaces.csproj" />
   </ItemGroup>
 
