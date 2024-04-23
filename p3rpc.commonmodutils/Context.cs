@@ -42,11 +42,11 @@ namespace p3rpc.commonmodutils
     // For Unreal Engine games (Persona 3 Reload, SMTVV, Persona 6 etc.)
     public class UnrealContext : Context
     {
-        private IClassExtender _classExtender;
-        private IClassFactory _classFactory;
-        private IObjectListeners _objectListeners;
-        private IObjectSearch _objectSearch;
-        private IObjectUtilities _objectUtils;
+        public IClassExtender _classExtender { get; private set; }
+        public IClassFactory _classFactory { get; private set; }
+        public IObjectListeners _objectListeners { get; private set; }
+        public IObjectSearch _objectSearch { get; private set; }
+        public IObjectUtilities _objectUtils { get; private set; }
 
         // Talk to Unreal.ClassConstructor to access shared resources.
         public UnrealContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, IReloadedHooks hooks, 
