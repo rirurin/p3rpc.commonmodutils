@@ -75,41 +75,6 @@ namespace p3rpc.commonmodutils
         // void cb -> Action<UObject*>
         public unsafe void NotifyOnNewObject(UClass* type, Action<nint> cb) => _objectListeners.NotifyOnNewObject(type, cb);
         public unsafe void NotifyOnNewObject(string typeName, Action<nint> cb) => _objectListeners.NotifyOnNewObject(typeName, cb);
-        /*
-        TODO For Unreal.ClassConstructor
-        public unsafe UObject* SpawnObject(UClass* type, UObject* owner)
-        {
-            var objParams = (FStaticConstructObjectParameters*)NativeMemory.AllocZeroed((nuint)sizeof(FStaticConstructObjectParameters));
-            objParams->Class = type;
-            objParams->Outer = owner;
-            //objParams->Name = name;
-            var newObj = StaticConstructObject_InternalImpl(objParams);
-            NativeMemory.Free(objParams);
-            return newObj;
-        }
-        public unsafe UObject* SpawnObject(string type, UObject* owner)
-        {
-            if (_classNameToType.TryGetValue(type, out var typePtr))
-            {
-                var objParams = (FStaticConstructObjectParameters*)NativeMemory.AllocZeroed((nuint)sizeof(FStaticConstructObjectParameters));
-                objParams->Class = (UClass*)typePtr;
-                objParams->Outer = owner;
-                //objParams->Name = name;
-                var newObj = StaticConstructObject_InternalImpl(objParams);
-                NativeMemory.Free(objParams);
-                return newObj;
-            }
-            return null;
-        }
-        public unsafe void FreeObject(UObject* obj)
-        {
-            // TODO: Invoke GMalloc::Free
-        }
-        public unsafe void FreeObject(string objName, string typeName)
-        {
-            // TODO: Invoke GMalloc::Free
-        }
-        */
         public unsafe void FindObjectAsync(string targetObj, string? objType, Action<nint> foundCb) => _objectSearch.FindObjectAsync(targetObj, objType, foundCb);
         public unsafe void FindObjectAsync(string targetObj, Action<nint> foundCb) => _objectSearch.FindObjectAsync(targetObj, foundCb);
         public unsafe void FindFirstOfAsync(string objType, Action<nint> foundCb) => _objectSearch.FindFirstOfAsync(objType, foundCb);
