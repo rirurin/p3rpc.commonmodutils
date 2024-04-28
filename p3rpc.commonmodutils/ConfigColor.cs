@@ -1,4 +1,4 @@
-﻿using Unreal.NativeTypes.Interfaces;
+﻿using p3rpc.nativetypes.Interfaces;
 
 #pragma warning disable CS1591
 
