@@ -16,6 +16,16 @@ namespace p3rpc.commonmodutils
         Warning,
         Error
     }
+    public class MultiSignature
+    {
+        public readonly object __sigLock;
+        public nuint? returnedAddress { get; set; }
+        public MultiSignature()
+        {
+            __sigLock = new object();
+            returnedAddress = null;
+        }
+    }
     public class Utils
     {
         private IStartupScanner _startupScanner;
@@ -50,13 +60,49 @@ namespace p3rpc.commonmodutils
             {
                 if (!result.Found)
                 {
-                    Log($"Couldn't find location for {name}, stuff will break :(");
+                    Log($"Couldn't find location for {name}, stuff will break :(", Color.Red, LogLevel.Error);
                     return;
                 }
                 var addr = transformCb(result.Offset);
-                Log($"Found {name} at 0x{addr:X}");
+                Log($"Found {name} at 0x{addr:X}", LogLevel.Debug);
                 hookerCb((long)addr);
             });
+        }
+
+        // Signature scan using multiple candidate signatures. This is useful in situations where the signature varies
+        // between versions of the executable and the executable doesn't update the version value in it's metadata
+        // (e.g Persona 3 Reload always reports version number 1.0.0.0 (Win64) or 4.27.2.0 (WinGDK) no matter the patch version)
+        public void MultiSigScan(string[] patterns, string name, Func<int, nuint> transformCb, Action<long> hookerCb, MultiSignature sync)
+        {
+            foreach (var pattern in patterns)
+            {
+                _startupScanner.AddMainModuleScan(pattern, result =>
+                {
+                    if (!result.Found)
+                    {
+                        Log($"Couldn't find location for {name} using pattern {pattern}, trying with another pattern...", Color.Khaki, LogLevel.Warning);
+                        return;
+                    }
+                    var callHookCb = false;
+                    lock (sync.__sigLock)
+                    {
+                        if (sync.returnedAddress == null)
+                        {
+                            sync.returnedAddress = transformCb(result.Offset);
+                            callHookCb = true;
+                        }
+                    }
+                    if (callHookCb)
+                    {
+                        Log($"Found {name} at 0x{sync.returnedAddress:X}", LogLevel.Debug);
+                        hookerCb((long)sync.returnedAddress);
+                    } else
+                    {
+                        Log($"Location {name} was already found in a candidate pattern", LogLevel.Debug);
+                        return;
+                    }
+                });
+            }
         }
 
         // Used to run callbacks for signatures scanned using SharedScans, usually ones that are shared with multiple mods
