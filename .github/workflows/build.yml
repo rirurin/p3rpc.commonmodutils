@@ -14,7 +14,9 @@ on:
 env:
   IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') }}
   RELEASE_TAG: ${{ github.ref_name }}
-  PUBLISH_PATH: ./Publish/Release/
+  BASE_PUBLISH_PATH: ./Publish/
+  P3R_PROJECT_PATH: ./Publish/Release_P3R/
+  GENERIC_PROJECT_PATH: ./Publish/Release_Generic/
   GITHUB_RELEASE_PATH: ./Publish/Github/
   NUGET_RELEASE_PATH: ./Publish/Nuget/
   CHANGELOG_PATH: ./Publish/Changelog.md
@@ -46,7 +48,7 @@ jobs:
       
     - name: Create Changelog
       run: |
-        [System.IO.Directory]::CreateDirectory("$env:PUBLISH_PATH")
+        [System.IO.Directory]::CreateDirectory("$env:BASE_PUBLISH_PATH")
         if ($env:IS_RELEASE -eq 'true') {
             auto-changelog --sort-commits date --hide-credit --template changelog-template.hbs --commit-limit false --starting-version "$env:RELEASE_TAG" --output "$env:CHANGELOG_PATH"
         }
@@ -55,26 +57,14 @@ jobs:
         }
 
     - name: Build
-      run: |
-        Remove-Item ${{ env.PUBLISH_PATH }} -Recurse -ErrorAction SilentlyContinue
-        New-Item ${{ env.PUBLISH_PATH }} -ItemType Directory -ErrorAction SilentlyContinue
-        Remove-Item ${{ env.GITHUB_RELEASE_PATH }} -Recurse -ErrorAction SilentlyContinue
-        New-Item ${{ env.GITHUB_RELEASE_PATH }} -ItemType Directory -ErrorAction SilentlyContinue
-        Remove-Item ${{ env.NUGET_RELEASE_PATH }} -Recurse -ErrorAction SilentlyContinue
-        New-Item ${{ env.NUGET_RELEASE_PATH }} -ItemType Directory -ErrorAction SilentlyContinue
-        dotnet restore p3rpc.commonmodutils/p3rpc.commonmodutils.csproj
-        dotnet clean p3rpc.commonmodutils/p3rpc.commonmodutils.csproj
-        dotnet build p3rpc.commonmodutils/p3rpc.commonmodutils.csproj -c Release -r win-x64 --self-contained false -o ${{ env.PUBLISH_PATH }}
-        $include_in_archive = Get-ChildItem -Path ${{ env.PUBLISH_PATH }} -Exclude "*.nupkg"
-        Compress-Archive -Path $include_in_archive ${{ env.GITHUB_RELEASE_PATH }}/p3rpc.commonmodutils_${{ github.ref_name }}.zip
-        Copy-Item -Path ${{ env.PUBLISH_PATH }}/* -Include "*.nupkg" -Destination ${{ env.NUGET_RELEASE_PATH }} -Recurse
+      run: ./BuildProjects.ps1 -P3RProjectPath ${{ env.P3R_PROJECT_PATH }} -GenericProjectPath ${{ env.GENERIC_PROJECT_PATH }} -GithubReleasePath ${{ env.GITHUB_RELEASE_PATH }} -NugetReleasePath ${{ env.NUGET_RELEASE_PATH }}
     
     - name: Upload GitHub Release Artifact
       uses: actions/upload-artifact@v2.2.4
       with:
         name: GitHub Release
         path: |
-          ${{ env.GITHUB_RELEASE_PATH }}/*
+          ${{ env.GITHUB_RELEASE_PATH }}*
 
     - name: Upload NuGet Release Artifact
       uses: actions/upload-artifact@v2.2.4
@@ -83,7 +73,7 @@ jobs:
         name: NuGet Release
         # A file, directory or wildcard pattern that describes what to upload
         path: |
-          ${{ env.NUGET_RELEASE_PATH }}/*
+          ${{ env.NUGET_RELEASE_PATH }}*
 
     - name: Upload Changelog Artifact
       uses: actions/upload-artifact@v2.2.4
@@ -100,7 +90,7 @@ jobs:
       with:
         body_path: ${{ env.CHANGELOG_PATH }}
         files: |
-          ${{ env.GITHUB_RELEASE_PATH }}/*
+          ${{ env.GITHUB_RELEASE_PATH }}*
 
     - name: Push to NuGet (on Tag)
       env: 

@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "p3rpc.commonmodutils", "p3r
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharedScans.Interfaces", "include\SharedScans\SharedScans.Interfaces\SharedScans.Interfaces.csproj", "{007F0E35-A9CA-4C4B-872C-6AE3B2DDC42B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "riri.commonmodutils", "riri.commonmodutils\riri.commonmodutils.csproj", "{BEE96671-E413-41A9-BFFB-254636E7AB49}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{007F0E35-A9CA-4C4B-872C-6AE3B2DDC42B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{007F0E35-A9CA-4C4B-872C-6AE3B2DDC42B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{007F0E35-A9CA-4C4B-872C-6AE3B2DDC42B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BEE96671-E413-41A9-BFFB-254636E7AB49}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BEE96671-E413-41A9-BFFB-254636E7AB49}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BEE96671-E413-41A9-BFFB-254636E7AB49}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BEE96671-E413-41A9-BFFB-254636E7AB49}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
