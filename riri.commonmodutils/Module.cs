@@ -1,4 +1,5 @@
 ﻿#pragma warning disable CS1591
+using Reloaded.Memory.Utilities;
 using Reloaded.Mod.Interfaces;
 using System.Reflection;
 
@@ -70,6 +71,23 @@ public class ModuleRuntime<TContext> : ModuleCommunication<TContext> where TCont
         else
         {
             throw new Exception($"Could not find appropriate constructor for type {typeInfo.Name}");
+        }
+    }
+    public void AddModule(Type moduleType)
+    {
+        ConstructorInfo? construct = moduleType.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public, null, CallingConventions.HasThis,
+            [typeof(TContext), typeof(Dictionary<string, ModuleBase<TContext>>)], null
+        );
+        if (construct != null)
+        {
+            var newModule = (ModuleBase<TContext>)construct.Invoke(new object[] { _context, _modules });
+            _modules.Add(moduleType.Name, newModule);
+            _context._utils.Log($"Added module {moduleType.Name}");
+        }
+        else
+        {
+            throw new Exception($"Could not find appropriate constructor for type {moduleType.Name}");
         }
     }
     public void RegisterModules() { foreach (var mod in _modules.Values) mod.Register(); }

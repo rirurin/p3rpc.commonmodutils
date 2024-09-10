@@ -19,11 +19,14 @@ namespace p3rpc.commonmodutils
     public class MultiSignature
     {
         public readonly object __sigLock;
+        public int registeredSignatures { get; set; }
         public nuint? returnedAddress { get; set; }
         public MultiSignature()
         {
             __sigLock = new object();
             returnedAddress = null;
+            registeredSignatures = 0;
+
         }
     }
     public class Utils
@@ -74,13 +77,28 @@ namespace p3rpc.commonmodutils
         // (e.g Persona 3 Reload always reports version number 1.0.0.0 (Win64) or 4.27.2.0 (WinGDK) no matter the patch version)
         public void MultiSigScan(string[] patterns, string name, Func<int, nuint> transformCb, Action<long> hookerCb, MultiSignature sync)
         {
+            sync.registeredSignatures = patterns.Length;
             foreach (var pattern in patterns)
             {
                 _startupScanner.AddMainModuleScan(pattern, result =>
                 {
+                    lock (sync.__sigLock)
+                    {
+                        sync.registeredSignatures--;
+                    }
                     if (!result.Found)
                     {
-                        Log($"Couldn't find location for {name} using pattern {pattern}, trying with another pattern...", Color.Khaki, LogLevel.Warning);
+                        if (sync.returnedAddress != null)
+                        {
+                            Log($"Location {name} was already found in a candidate pattern", LogLevel.Debug);
+                        }
+                        else if (sync.registeredSignatures == 0)
+                        {
+                            Log($"Couldn't find location for {name}, stuff will break :(", Color.Red, LogLevel.Error);
+                        } else
+                        {
+                            Log($"Couldn't find location for {name} using pattern {pattern}, trying with another pattern...", Color.Khaki, LogLevel.Debug);
+                        }
                         return;
                     }
                     var callHookCb = false;
