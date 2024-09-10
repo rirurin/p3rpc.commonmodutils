@@ -60,14 +60,14 @@ jobs:
       run: ./BuildProjects.ps1 -P3RProjectPath ${{ env.P3R_PROJECT_PATH }} -GenericProjectPath ${{ env.GENERIC_PROJECT_PATH }} -GithubReleasePath ${{ env.GITHUB_RELEASE_PATH }} -NugetReleasePath ${{ env.NUGET_RELEASE_PATH }}
     
     - name: Upload GitHub Release Artifact
-      uses: actions/upload-artifact@v2.2.4
+      uses: actions/upload-artifact@v4
       with:
         name: GitHub Release
         path: |
           ${{ env.GITHUB_RELEASE_PATH }}*
 
     - name: Upload NuGet Release Artifact
-      uses: actions/upload-artifact@v2.2.4
+      uses: actions/upload-artifact@v4
       with:
         # Artifact name
         name: NuGet Release
@@ -76,7 +76,7 @@ jobs:
           ${{ env.NUGET_RELEASE_PATH }}*
 
     - name: Upload Changelog Artifact
-      uses: actions/upload-artifact@v2.2.4
+      uses: actions/upload-artifact@v4
       with:
         # Artifact name
         name: Changelog
