@@ -1,13 +1,20 @@
 ﻿using Reloaded.Hooks.Definitions;
+using Reloaded.Memory.Sigscan.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
+using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 #pragma warning disable CS1591
 
 namespace p3rpc.commonmodutils
 {
+    /// <summary>
+    /// Defines a target logging level for a particular message. If the config's log level is as or less verbose than a particular log, 
+    /// it'll be written to the Reloaded console
+    /// </summary>
     public enum LogLevel
     {
         Verbose,
@@ -16,6 +23,11 @@ namespace p3rpc.commonmodutils
         Warning,
         Error
     }
+    /// <summary>
+    /// Basic implementation to map multiple memory signatures to a single transform + response function. Designed for
+    /// cases where we can assume that the implementation of the code being hooked won't change significantly between
+    /// updates.
+    /// </summary>
     public class MultiSignature
     {
         public readonly object __sigLock;
@@ -29,6 +41,102 @@ namespace p3rpc.commonmodutils
 
         }
     }
+
+    /// <summary>
+    /// Create an entry for an AdvancedMultiSignature, with a distinct pattern, validator (choose to sigscan or not depending on user code), address transform and response
+    /// </summary>
+    public class AdvancedMultiSignatureEntry
+    {
+        public string Pattern;
+        public Func<bool> Validator;
+        public Func<int, nuint> Transform;
+        public Action<long> Response;
+        public AdvancedMultiSignatureEntry(string _Pattern, Func<bool> _Validator, Func<int, nuint> _Transform, Action<long> _Response)
+        {
+            Pattern = _Pattern;
+            Validator = _Validator;
+            Transform = _Transform;
+            Response = _Response;
+        }
+    }
+    /// <summary>
+    /// Advanced implementation for handling multiple memory signatures where each signature maps to a set of shared transform
+    /// and response functions. Signatures can be masked based on the XXH hash of the program, if the option for that is enabled in utilites. 
+    /// Initialization requires calling the CreateAdvancedMultiSignature function in the Utils class to capture dependencies. 
+    /// Useful in cases where the implementation is expected to change between updates, particularly with assembly hooks.
+    /// </summary>
+    public class AdvancedMultiSignature
+    {
+        public readonly object __sigLock;
+        public List<AdvancedMultiSignatureEntry> Entries;
+        public int SignaturesScanned;
+        public string Name;
+        public nuint? ReturnedAddress;
+        private IStartupScanner _startupScanner;
+        private Action<string> DebugLog;
+        private Action<string> ErrorLog;
+        public AdvancedMultiSignature(List<AdvancedMultiSignatureEntry> _Entries, string _Name, IStartupScanner startupScanner, Action<string> _DebugLog, Action<string> _ErrorLog)
+        {
+            Entries = _Entries;
+            SignaturesScanned = 0;
+            __sigLock = new object();
+            DebugLog = _DebugLog;
+            ErrorLog = _ErrorLog;
+            Name = _Name;
+            _startupScanner = startupScanner;
+            foreach (var entry in Entries)
+            {
+                if (!entry.Validator())
+                {
+                    // Don't bother setting up a sigscan if we know this doesn't apply to this executable
+                    continue;
+                }
+                _startupScanner.AddMainModuleScan(entry.Pattern, result =>
+                {
+                    lock (__sigLock) { SignaturesScanned++; }
+                    if (!result.Found)
+                    {
+                        if (ReturnedAddress != null)
+                        {
+                            DebugLog($"Location {Name} was already found in a candidate pattern");
+                        }
+                        else if (SignaturesScanned == Entries.Count)
+                        {
+                            ErrorLog($"Couldn't find location for {Name}, stuff will break :(");
+                        }
+                        else
+                        {
+                            DebugLog($"Couldn't find location for {Name} using pattern {entry.Pattern}, trying with another pattern...");
+                        }
+                        return;
+                    }
+                    var callHookCb = false;
+                    lock (__sigLock)
+                    {
+                        if (ReturnedAddress == null)
+                        {
+                            ReturnedAddress = entry.Transform(result.Offset);
+                            callHookCb = true;
+                        }
+                    }
+                    if (callHookCb)
+                    {
+                        DebugLog($"Found {Name} at 0x{ReturnedAddress:X}");
+                        entry.Response((long)ReturnedAddress);
+                    }
+                    else
+                    {
+                        DebugLog($"Location {Name} was already found in a candidate pattern");
+                        return;
+                    }
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Provides common utility instances for mod components.
+    /// </summary>
     public class Utils
     {
         private IStartupScanner _startupScanner;
@@ -38,6 +146,7 @@ namespace p3rpc.commonmodutils
         private string _name;
         private Color _color;
         private LogLevel _logLevel;
+        private ulong? _moduleHashValue;
 
         public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
         {
@@ -48,6 +157,18 @@ namespace p3rpc.commonmodutils
             _name = name;
             _color = color != null ? color.Value : Color.White;
             _logLevel = logLevel;
+        }
+
+        public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
+        {
+            _startupScanner = startupScanner;
+            _hooks = hooks;
+            _baseAddress = baseAddress;
+            _logger = logger;
+            _name = name;
+            _color = color != null ? color.Value : Color.White;
+            _logLevel = logLevel;
+            _moduleHashValue = ProcessHash;
         }
 
         /// <summary>
@@ -129,6 +250,21 @@ namespace p3rpc.commonmodutils
             var addrTransformed = transformCb((int)(addr - _baseAddress));
             hookerCb((long)addrTransformed);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CreateAdvancedMultiSignature(List<AdvancedMultiSignatureEntry> _Entries, string _Name)
+        => new AdvancedMultiSignature(_Entries, _Name, _startupScanner, text => Log(text, LogLevel.Debug), text => Log(text, Color.Red, LogLevel.Error));
+
+        public bool ValidateSignaturesByHash(List<ulong> CandidateHashes)
+        {
+            foreach (ulong CandidateHash in CandidateHashes)
+                if (ValidateSignatureByHash(CandidateHash))
+                    return true;
+            return false;
+        }
+        public bool ValidateSignatureByHash(ulong CandidateHash) => _moduleHashValue.HasValue && _moduleHashValue.Value == CandidateHash;
+
+
         // Log defaults to a verbosity level of LogLevel.Information
         public void Log(string text) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
         public void Log(string text, Color customColor) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
@@ -182,6 +318,37 @@ namespace p3rpc.commonmodutils
                 sb.Append(PopXmm(i));
             }
             return sb.ToString();
+        }
+
+        public static TControllerType GetDependency<TControllerType>(IModLoader modLoader, string modName, string depName) where TControllerType : class
+        {
+            var controller = modLoader.GetController<TControllerType>();
+            if (controller == null || !controller.TryGetTarget(out var target))
+                throw new Exception($"[{modName}] Could not get controller for \"{depName}\". This depedency is likely missing.");
+            return target;
+        }
+
+        public bool IsExecutableEpisodeAigis(IModLoader modLoader, string modName)
+        {
+            var scannerFactory = GetDependency<IScannerFactory>(modLoader, modName, "Scanner Factory");
+            var process = Process.GetCurrentProcess();
+            if (process == null || process.MainModule == null)
+                throw new Exception($"[{modName}] No process is active!");
+            var scanner = scannerFactory.CreateScanner(process, process.MainModule);
+            var res = scanner.FindPattern("48 8B C4 48 89 48 ?? 55 41 54 48 8D 68 ?? 48 81 EC 48 01 00 00");
+            bool bIsAigis = false;
+            if (!res.Found)
+                throw new Exception($"[{modName}] We couldn't determine if this executable contains Episode Aigis! Since the code has likely changed a lot, it'd be unsafe to continue initializing this mod.");
+            unsafe
+            {
+                // UAppCharacterComp::Update + 0x254 is FF in release (call to vtable), but 75 in episode aigis (short jump)
+                if (*(byte*)(process.MainModule.BaseAddress + res.Offset + 0x254) == 0x75)
+                {
+                    Log("Set hooks to use Episode Aigis.", LogLevel.Debug);
+                    bIsAigis = true;
+                }
+            }
+            return bIsAigis;
         }
     }
 }

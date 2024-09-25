@@ -2,11 +2,19 @@
 using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
+using System.Diagnostics;
 using System.Drawing;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Xml.Linq;
 
 namespace riri.commonmodutils;
 
+/// <summary>
+/// Defines a target logging level for a particular message. If the config's log level is as or less verbose than a particular log, 
+/// it'll be written to the Reloaded console
+/// </summary>
 public enum LogLevel
 {
     Verbose,
@@ -15,6 +23,11 @@ public enum LogLevel
     Warning,
     Error
 }
+/// <summary>
+/// Basic implementation to map multiple memory signatures to a single transform + response function. Designed for
+/// cases where we can assume that the implementation of the code being hooked won't change significantly between
+/// updates.
+/// </summary>
 public class MultiSignature
 {
     public readonly object __sigLock;
@@ -27,6 +40,100 @@ public class MultiSignature
         registeredSignatures = 0;
     }
 }
+/// <summary>
+/// Create an entry for an AdvancedMultiSignature, with a distinct pattern, validator (choose to sigscan or not depending on user code), address transform and response
+/// </summary>
+public class AdvancedMultiSignatureEntry
+{
+    public string Pattern;
+    public Func<bool> Validator;
+    public Func<int, nuint> Transform;
+    public Action<long> Response;
+    public AdvancedMultiSignatureEntry(string _Pattern, Func<bool> _Validator, Func<int, nuint> _Transform, Action<long> _Response)
+    {
+        Pattern = _Pattern;
+        Validator = _Validator;
+        Transform = _Transform;
+        Response = _Response;
+    }
+}
+/// <summary>
+/// Advanced implementation for handling multiple memory signatures where each signature maps to a set of shared transform
+/// and response functions. Signatures can be masked based on the XXH hash of the program, if the option for that is enabled in utilites. 
+/// Initialization requires calling the CreateAdvancedMultiSignature function in the Utils class to capture dependencies. 
+/// Useful in cases where the implementation is expected to change between updates, particularly with assembly hooks.
+/// </summary>
+public class AdvancedMultiSignature
+{
+    public readonly object __sigLock;
+    public List<AdvancedMultiSignatureEntry> Entries;
+    public int SignaturesScanned;
+    public string Name;
+    public nuint? ReturnedAddress;
+    private IStartupScanner _startupScanner;
+    private Action<string> DebugLog;
+    private Action<string> ErrorLog;
+    public AdvancedMultiSignature(List<AdvancedMultiSignatureEntry> _Entries, string _Name, IStartupScanner startupScanner, Action<string> _DebugLog, Action<string> _ErrorLog)
+    {
+        Entries = _Entries;
+        SignaturesScanned = 0;
+        __sigLock = new object();
+        DebugLog = _DebugLog;
+        ErrorLog = _ErrorLog;
+        Name = _Name;
+        _startupScanner = startupScanner;
+        foreach (var entry in Entries)
+        {
+            if (!entry.Validator())
+            {
+                // Don't bother setting up a sigscan if we know this doesn't apply to this executable
+                continue;
+            }
+            _startupScanner.AddMainModuleScan(entry.Pattern, result =>
+            {
+                lock (__sigLock) { SignaturesScanned++; }
+                if (!result.Found)
+                {
+                    if (ReturnedAddress != null)
+                    {
+                        DebugLog($"Location {Name} was already found in a candidate pattern");
+                    }
+                    else if (SignaturesScanned == Entries.Count)
+                    {
+                        ErrorLog($"Couldn't find location for {Name}, stuff will break :(");
+                    }
+                    else
+                    {
+                        DebugLog($"Couldn't find location for {Name} using pattern {entry.Pattern}, trying with another pattern...");
+                    }
+                    return;
+                }
+                var callHookCb = false;
+                lock (__sigLock)
+                {
+                    if (ReturnedAddress == null)
+                    {
+                        ReturnedAddress = entry.Transform(result.Offset);
+                        callHookCb = true;
+                    }
+                }
+                if (callHookCb)
+                {
+                    DebugLog($"Found {Name} at 0x{ReturnedAddress:X}");
+                    entry.Response((long)ReturnedAddress);
+                }
+                else
+                {
+                    DebugLog($"Location {Name} was already found in a candidate pattern");
+                    return;
+                }
+            });
+        }
+    }
+}
+/// <summary>
+/// Provides common utility instances for mod components.
+/// </summary>
 public class Utils
 {
     private IStartupScanner _startupScanner;
@@ -36,6 +143,8 @@ public class Utils
     private string _name;
     private Color _color;
     private LogLevel _logLevel;
+    //private ProcessModule? _CurrentModule;
+    private ulong? _moduleHashValue;
 
     public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
     {
@@ -46,6 +155,34 @@ public class Utils
         _name = name;
         _color = color != null ? color.Value : Color.White;
         _logLevel = logLevel;
+    }
+
+    //public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ProcessModule CurrentModule)
+    public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
+    {
+        _startupScanner = startupScanner;
+        _hooks = hooks;
+        _baseAddress = baseAddress;
+        _logger = logger;
+        _name = name;
+        _color = color != null ? color.Value : Color.White;
+        _logLevel = logLevel;
+        // I'll have to trust that the hash being sent the correct one for the executable - I don't want to have to read the exe each time a Utils instance is made lol
+        _moduleHashValue = ProcessHash;
+        /*
+        _CurrentModule = CurrentModule;
+        if (_CurrentModule.FileName == null)
+        {
+            Log($"Filename for current module is null, couldn't determine a hash value");
+        } else
+        {
+            using (var exec = new BinaryReader(File.Open(_CurrentModule.FileName, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            {
+                _moduleHashValue = xxHash64.ComputeHash(exec.BaseStream);
+                Log($"Program hash is {_moduleHashValue:X}");
+            }
+        }
+        */
     }
 
     /// <summary>
@@ -129,6 +266,20 @@ public class Utils
         var addrTransformed = transformCb((int)(addr - _baseAddress));
         hookerCb((long)addrTransformed);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void CreateAdvancedMultiSignature(List<AdvancedMultiSignatureEntry> _Entries, string _Name)
+        => new AdvancedMultiSignature(_Entries, _Name, _startupScanner, text => Log(text, LogLevel.Debug), text => Log(text, Color.Red, LogLevel.Error));
+
+    public bool ValidateSignaturesByHash(List<ulong> CandidateHashes)
+    {
+        foreach (ulong CandidateHash in CandidateHashes)
+            if (ValidateSignatureByHash(CandidateHash))
+                return true;
+        return false;
+    }
+    public bool ValidateSignatureByHash(ulong CandidateHash) => _moduleHashValue.HasValue && _moduleHashValue.Value == CandidateHash;
+
     // Log defaults to a verbosity level of LogLevel.Information
     public void Log(string text) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
     public void Log(string text, Color customColor) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
