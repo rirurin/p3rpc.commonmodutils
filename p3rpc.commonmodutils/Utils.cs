@@ -264,6 +264,33 @@ namespace p3rpc.commonmodutils
         }
         public bool ValidateSignatureByHash(ulong CandidateHash) => _moduleHashValue.HasValue && _moduleHashValue.Value == CandidateHash;
 
+        private unsafe nuint DerefInstructionPointerShort(nuint ptr)
+        {
+            var ptr_new = ptr + (nuint)(*(sbyte*)(ptr + 1) + 2);
+            return TryDerefInstructionPointer(ptr_new);
+        }
+
+        private unsafe nuint DerefInstructionPointerNear(nuint ptr)
+        {
+            var ptr_new = ptr + (nuint)(*(int*)(ptr + 1) + 5);
+            return TryDerefInstructionPointer(ptr_new);
+        }
+
+        private nuint TryDerefInstructionPointer(nuint ptr)
+        {
+            if (ptr < (nuint)_baseAddress) { return 0; }
+            unsafe
+            {
+                switch (*(byte*)ptr)
+                {
+                    case 0xeb: return DerefInstructionPointerShort(ptr);
+                    case 0xe9: return DerefInstructionPointerNear(ptr);
+                    //case 0xff:
+                    //    break;
+                    default: return ptr;
+                }
+            }
+        }
 
         // Log defaults to a verbosity level of LogLevel.Information
         public void Log(string text) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
@@ -271,6 +298,7 @@ namespace p3rpc.commonmodutils
         public void Log(string text, LogLevel verbosity) { if (verbosity >= _logLevel) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
         public void Log(string text, Color customColor, LogLevel verbosity) { if (verbosity >= _logLevel) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
         public nuint GetDirectAddress(int offset) => (nuint)(_baseAddress + offset);
+        public nuint GetAddressMayThunk(int offset) => TryDerefInstructionPointer(GetDirectAddress(offset));
         public nuint GetIndirectAddressShort(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 1);
         public nuint GetIndirectAddressShort2(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 2);
         public nuint GetIndirectAddressLong(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 3);
