@@ -139,6 +139,7 @@ namespace p3rpc.commonmodutils
     /// </summary>
     public class Utils
     {
+        private IModLoader? _modLoader;
         private IStartupScanner _startupScanner;
         private IReloadedHooks _hooks;
         private ILogger _logger;
@@ -148,6 +149,7 @@ namespace p3rpc.commonmodutils
         private LogLevel _logLevel;
         private ulong? _moduleHashValue;
 
+        [Obsolete("Constructor does not create an IModLoader instance. Please use Utils.Create() instead.")]
         public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
         {
             _startupScanner = startupScanner;
@@ -159,6 +161,7 @@ namespace p3rpc.commonmodutils
             _logLevel = logLevel;
         }
 
+        [Obsolete("Constructor does not create an IModLoader instance. Please use Utils.Create() instead.")]
         public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
         {
             _startupScanner = startupScanner;
@@ -170,6 +173,50 @@ namespace p3rpc.commonmodutils
             _logLevel = logLevel;
             _moduleHashValue = ProcessHash;
         }
+
+        private Utils(IModLoader? modLoader, IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
+        {
+            _modLoader = modLoader;
+            _startupScanner = startupScanner;
+            _hooks = hooks;
+            _baseAddress = baseAddress;
+            _logger = logger;
+            _name = name;
+            _color = color != null ? color.Value : Color.White;
+            _logLevel = logLevel;
+            _moduleHashValue = ProcessHash;
+        }
+
+        /// <summary>
+        /// Initializes an instance of commonmodutils' Utils class. Create one instance of this in your mod's startup.
+        /// </summary>
+        /// <param name="modLoader"></param>
+        /// <param name="startupScanner"></param>
+        /// <param name="logger"></param>
+        /// <param name="hooks"></param>
+        /// <param name="baseAddress"></param>
+        /// <param name="name"></param>
+        /// <param name="color"></param>
+        /// <param name="logLevel"></param>
+        /// <returns></returns>
+        public static Utils Create(IModLoader modLoader, IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
+            => Create(modLoader, startupScanner, logger, hooks, baseAddress, name, color, logLevel, null);
+
+        /// <summary>
+        /// Initializes an instance of commonmodutils' Utils class, including the processor hash. Create one instance of this in your mod's startup.
+        /// </summary>
+        /// <param name="modLoader"></param>
+        /// <param name="startupScanner"></param>
+        /// <param name="logger"></param>
+        /// <param name="hooks"></param>
+        /// <param name="baseAddress"></param>
+        /// <param name="name"></param>
+        /// <param name="color"></param>
+        /// <param name="logLevel"></param>
+        /// <param name="ProcessHash"></param>
+        /// <returns></returns>
+        public static Utils Create(IModLoader modLoader, IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
+            => new Utils(modLoader, startupScanner, logger, hooks, baseAddress, name, color, logLevel, ProcessHash);
 
         /// <summary>
         /// Gets the address of a global from something that references it
@@ -356,6 +403,18 @@ namespace p3rpc.commonmodutils
             return target;
         }
 
+        public TControllerType GetDependencyEx<TControllerType>(string depName) where TControllerType : class
+        {
+            if (_modLoader == null)
+            {
+                throw new Exception("IModLoader needs to be initialized to use GetDependencyEx");
+            }
+            var controller = _modLoader!.GetController<TControllerType>();
+            if (controller == null || !controller.TryGetTarget(out var target))
+                throw new Exception($"[{_name}] Could not get controller for \"{depName}\". This depedency is likely missing.");
+            return target;
+        }
+
         public bool IsExecutableEpisodeAigis(IModLoader modLoader, string modName)
         {
             var scannerFactory = GetDependency<IScannerFactory>(modLoader, modName, "Scanner Factory");
@@ -378,5 +437,7 @@ namespace p3rpc.commonmodutils
             }
             return bIsAigis;
         }
+
+        public bool IsExecutableEpisodeAigisEx() => IsExecutableEpisodeAigis(_modLoader!, _name);
     }
 }

@@ -1,52 +1,27 @@
-﻿using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
-using Reloaded.Memory;
-using Reloaded.Mod.Interfaces;
-using Reloaded.Hooks.Definitions;
-using SharedScans.Interfaces;
+﻿using p3rpc.classconstructor.Interfaces;
 using p3rpc.nativetypes.Interfaces;
-using p3rpc.classconstructor.Interfaces;
+using Reloaded.Hooks.ReloadedII.Interfaces;
+using Reloaded.Memory;
+using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
+using Reloaded.Mod.Interfaces;
+using SharedScans.Interfaces;
 
 #pragma warning disable CS1591
 
 namespace p3rpc.commonmodutils
 {
-    public abstract class Context
-    {
-        public long _baseAddress { get; init; }
-        public IConfigurable _config { get; set; }
-        public ILogger _logger { get; init; }
-        public IStartupScanner _startupScanner { get; init; }
-        public IReloadedHooks _hooks { get; init; }
-        public Utils _utils { get; init; }
-        public Memory _memory { get; init; }
-        public string _modLocation { get; init; }
-        public ISharedScans _sharedScans { get; init; }
-
-        public Context(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner,
-            IReloadedHooks hooks, string modLocation, Utils utils, Memory memory, ISharedScans sharedScans)
-        {
-            _baseAddress = baseAddress;
-            _config = config;
-            _logger = logger;
-            _startupScanner = startupScanner;
-            _hooks = hooks;
-            _modLocation = modLocation;
-            _utils = utils;
-            _memory = memory;
-            _sharedScans = sharedScans;
-        }
-
-        public virtual void OnConfigUpdated(IConfigurable newConfig) => _config = newConfig;
-    }
-
-    // For Unreal Engine games (Persona 3 Reload, SMTVV, Persona 6 etc.)
+    /// <summary>
+    /// For Unreal Engine games (Persona 3 Reload, SMTVV, Persona 4 Revival, Persona 6 etc.)
+    /// For older mods which use Unreal Class Constructor. New mods should inherit from UnrealToolkitContext instead.
+    /// </summary>
+    [Obsolete("Switch to UnrealToolkitContext if possible")]
     public class UnrealContext : Context
     {
         public IClassMethods _classMethods { get; private set; }
         public IObjectMethods _objectMethods { get; private set; }
 
         // Talk to Unreal.ClassConstructor to access shared resources.
-        public UnrealContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, IReloadedHooks hooks, 
+        public UnrealContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, IReloadedHooks hooks,
             string modLocation, Utils utils, Memory memory, ISharedScans sharedScans, IClassMethods classMethods, IObjectMethods objectMethods)
             : base(baseAddress, config, logger, startupScanner, hooks, modLocation, utils, memory, sharedScans)
         {

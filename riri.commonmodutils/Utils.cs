@@ -136,6 +136,7 @@ public class AdvancedMultiSignature
 /// </summary>
 public class Utils
 {
+    private IModLoader? _modLoader;
     private IStartupScanner _startupScanner;
     private IReloadedHooks _hooks;
     private ILogger _logger;
@@ -143,9 +144,9 @@ public class Utils
     private string _name;
     private Color _color;
     private LogLevel _logLevel;
-    //private ProcessModule? _CurrentModule;
     private ulong? _moduleHashValue;
 
+    [Obsolete("Constructor does not create an IModLoader instance. Please use Utils.Create() instead.")]
     public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
     {
         _startupScanner = startupScanner;
@@ -157,7 +158,7 @@ public class Utils
         _logLevel = logLevel;
     }
 
-    //public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ProcessModule CurrentModule)
+    [Obsolete("Constructor does not create an IModLoader instance. Please use Utils.Create() instead.")]
     public Utils(IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
     {
         _startupScanner = startupScanner;
@@ -169,21 +170,52 @@ public class Utils
         _logLevel = logLevel;
         // I'll have to trust that the hash being sent the correct one for the executable - I don't want to have to read the exe each time a Utils instance is made lol
         _moduleHashValue = ProcessHash;
-        /*
-        _CurrentModule = CurrentModule;
-        if (_CurrentModule.FileName == null)
-        {
-            Log($"Filename for current module is null, couldn't determine a hash value");
-        } else
-        {
-            using (var exec = new BinaryReader(File.Open(_CurrentModule.FileName, FileMode.Open, FileAccess.Read, FileShare.Read)))
-            {
-                _moduleHashValue = xxHash64.ComputeHash(exec.BaseStream);
-                Log($"Program hash is {_moduleHashValue:X}");
-            }
-        }
-        */
     }
+
+    private Utils(IModLoader modLoader, IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
+    {
+        _modLoader = modLoader;
+        _startupScanner = startupScanner;
+        _hooks = hooks;
+        _baseAddress = baseAddress;
+        _logger = logger;
+        _name = name;
+        _color = color != null ? color.Value : Color.White;
+        _logLevel = logLevel;
+        // I'll have to trust that the hash being sent the correct one for the executable - I don't want to have to read the exe each time a Utils instance is made lol
+        _moduleHashValue = ProcessHash;
+    }
+
+    /// <summary>
+    /// Initializes an instance of commonmodutils' Utils class. Create one instance of this in your mod's startup.
+    /// </summary>
+    /// <param name="modLoader"></param>
+    /// <param name="startupScanner"></param>
+    /// <param name="logger"></param>
+    /// <param name="hooks"></param>
+    /// <param name="baseAddress"></param>
+    /// <param name="name"></param>
+    /// <param name="color"></param>
+    /// <param name="logLevel"></param>
+    /// <returns></returns>
+    public static Utils Create(IModLoader modLoader, IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel = LogLevel.Information)
+        => Create(modLoader, startupScanner, logger, hooks, baseAddress, name, color, logLevel, null);
+
+    /// <summary>
+    /// Initializes an instance of commonmodutils' Utils class, including the processor hash. Create one instance of this in your mod's startup.
+    /// </summary>
+    /// <param name="modLoader"></param>
+    /// <param name="startupScanner"></param>
+    /// <param name="logger"></param>
+    /// <param name="hooks"></param>
+    /// <param name="baseAddress"></param>
+    /// <param name="name"></param>
+    /// <param name="color"></param>
+    /// <param name="logLevel"></param>
+    /// <param name="ProcessHash"></param>
+    /// <returns></returns>
+    public static Utils Create(IModLoader modLoader, IStartupScanner startupScanner, ILogger logger, IReloadedHooks hooks, long baseAddress, string name, Color? color, LogLevel logLevel, ulong? ProcessHash)
+        => new Utils(modLoader, startupScanner, logger, hooks, baseAddress, name, color, logLevel, ProcessHash);
 
     /// <summary>
     /// Gets the address of a global from something that references it
