@@ -20,16 +20,20 @@ namespace p3rpc.commonmodutils
         public IUnrealStrings _toolkitStrings { get; private set; }
         public IUnrealObjects _toolkitObjects { get; private set; }
         public IUnrealMemory _toolkitMemory { get; private set; }
-        public UnrealToolkitContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, IReloadedHooks hooks,
-            string modLocation, Utils utils, Memory memory, ISharedScans sharedScans, IUnrealStrings toolkitStrings, IUnrealObjects toolkitObjects, IUnrealMemory toolkitMemory)
+        public IUnrealClasses _toolkitClasses { get; private set; }
+        public UnrealToolkitContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, 
+            IReloadedHooks hooks, string modLocation, Utils utils, Memory memory, ISharedScans sharedScans, 
+            IUnrealStrings toolkitStrings, IUnrealObjects toolkitObjects, IUnrealMemory toolkitMemory,
+            IUnrealClasses toolkitClasses)
             : base(baseAddress, config, logger, startupScanner, hooks, modLocation, utils, memory, sharedScans)
         {
             _toolkitStrings = toolkitStrings;
             _toolkitObjects = toolkitObjects;
             _toolkitMemory = toolkitMemory;
+            _toolkitClasses = toolkitClasses;
         }
 
-        public unsafe string GetFName(FName name) => name.ToString();
+        public string GetFName(FName name) => name.ToString();
         public unsafe string GetObjectName(UObjectBase* obj) => obj->NamePrivate.ToString();
 
         private unsafe string GetPathName(UObjectBase* obj, UObjectBase* end)
@@ -49,11 +53,10 @@ namespace p3rpc.commonmodutils
         /// <param name="obj">UObject to get path name from</param>
         /// <returns></returns>
         public unsafe string GetFullName(UObjectBase* obj)
-        {
-            return obj->OuterPrivate != null ? GetPathName(obj, obj) : GetObjectName(obj);
-        }
+            => obj->OuterPrivate != null ? GetPathName(obj, obj) : GetObjectName(obj);
 
-        public unsafe UClass* GetType(string type) => throw new NotImplementedException();
+        public unsafe UClass* GetType(string type) =>
+            _toolkitClasses.GetClassInfoFromName(type, out var Class) ? (UClass*)Class.Ptr : null;
         public unsafe void GetTypeAsync(string type, Action<nint> foundCb) => throw new NotImplementedException();
         public unsafe bool IsObjectSubclassOf(UObjectBase* obj, UClass* type) => throw new NotImplementedException();
         public unsafe bool DoesNameMatch(UObjectBase* tgtObj, string name) => throw new NotImplementedException();
@@ -61,6 +64,6 @@ namespace p3rpc.commonmodutils
         public unsafe UObjectBase* GetEngineTransient() => throw new NotImplementedException();
 
         public unsafe void NotifyOnNewObject<TObject>(Action<Ptr<TObject>> cb) where TObject: unmanaged
-            => _toolkitObjects.OnObjectLoadedByClass<TObject>((obj) => cb(new Ptr<TObject>()));
+            => _toolkitObjects.OnObjectLoadedByClass<TObject>(obj => cb(new Ptr<TObject>(obj.Self)));
     }
 }
