@@ -14,7 +14,7 @@
 		<PackageId>riri.commonmodutils</PackageId>
 
 		<!-- Use Semantic Versioning -->
-		<Version>1.8.1</Version>
+		<Version>1.8.2</Version>
 		<Authors>Rirurin</Authors>
 
 		<!-- Description of your Package -->
@@ -36,7 +36,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Reloaded.Memory" Version="9.4.2" />
+    <PackageReference Include="Reloaded.Memory" Version="9.4.3" />
     <PackageReference Include="Reloaded.Memory.SigScan.ReloadedII.Interfaces" Version="1.2.0" />
     <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" />
     <PackageReference Include="Reloaded.SharedLib.Hooks" Version="1.9.0" />

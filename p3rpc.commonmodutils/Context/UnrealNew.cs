@@ -56,7 +56,7 @@ namespace p3rpc.commonmodutils
             => obj->OuterPrivate != null ? GetPathName(obj, obj) : GetObjectName(obj);
 
         public unsafe UClass* GetType(string type) =>
-            _toolkitClasses.GetClassInfoFromName(type, out var Class) ? (UClass*)Class.Ptr : null;
+            _toolkitClasses.GetClassInfoFromName(type, out var Class) ? (UClass*)Class!.Ptr : null;
         public unsafe void GetTypeAsync(string type, Action<nint> foundCb) => throw new NotImplementedException();
         public unsafe bool IsObjectSubclassOf(UObjectBase* obj, UClass* type) => throw new NotImplementedException();
         public unsafe bool DoesNameMatch(UObjectBase* tgtObj, string name) => throw new NotImplementedException();

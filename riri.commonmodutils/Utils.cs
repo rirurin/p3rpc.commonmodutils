@@ -154,7 +154,7 @@ public class Utils
         _baseAddress = baseAddress;
         _logger = logger;
         _name = name;
-        _color = color != null ? color.Value : Color.White;
+        _color = color ?? Color.White;
         _logLevel = logLevel;
     }
 
@@ -166,7 +166,7 @@ public class Utils
         _baseAddress = baseAddress;
         _logger = logger;
         _name = name;
-        _color = color != null ? color.Value : Color.White;
+        _color = color ?? Color.White;
         _logLevel = logLevel;
         // I'll have to trust that the hash being sent the correct one for the executable - I don't want to have to read the exe each time a Utils instance is made lol
         _moduleHashValue = ProcessHash;
@@ -180,7 +180,7 @@ public class Utils
         _baseAddress = baseAddress;
         _logger = logger;
         _name = name;
-        _color = color != null ? color.Value : Color.White;
+        _color = color ?? Color.White;
         _logLevel = logLevel;
         // I'll have to trust that the hash being sent the correct one for the executable - I don't want to have to read the exe each time a Utils instance is made lol
         _moduleHashValue = ProcessHash;
@@ -312,31 +312,29 @@ public class Utils
     }
     public bool ValidateSignatureByHash(ulong CandidateHash) => _moduleHashValue.HasValue && _moduleHashValue.Value == CandidateHash;
 
-    private unsafe nuint DerefInstructionPointerShort(nuint ptr)
+    private unsafe nuint DerefInstructionPointerShort(nuint ptr, bool boundsCheck = true)
     {
         var ptr_new = ptr + (nuint)(*(sbyte*)(ptr + 1) + 2);
-        return TryDerefInstructionPointer(ptr_new);
+        return TryDerefInstructionPointer(ptr_new, boundsCheck);
     }
 
-    private unsafe nuint DerefInstructionPointerNear(nuint ptr)
+    private unsafe nuint DerefInstructionPointerNear(nuint ptr, bool boundsCheck = true)
     {
         var ptr_new = ptr + (nuint)(*(int*)(ptr + 1) + 5);
-        return TryDerefInstructionPointer(ptr_new);
+        return TryDerefInstructionPointer(ptr_new, boundsCheck);
     }
 
-    private nuint TryDerefInstructionPointer(nuint ptr)
+    private nuint TryDerefInstructionPointer(nuint ptr, bool boundsCheck = true)
     {
-        if (ptr < (nuint)_baseAddress) { return 0; }
+        if (boundsCheck && ptr < (nuint)_baseAddress) { return 0; }
         unsafe
         {
-            switch (*(byte*)ptr)
+            return (*(byte*)ptr) switch
             {
-                case 0xeb: return DerefInstructionPointerShort(ptr);
-                case 0xe9: return DerefInstructionPointerNear(ptr);
-                //case 0xff:
-                //    break;
-                default: return ptr;
-            }
+                0xeb => DerefInstructionPointerShort(ptr, boundsCheck),
+                0xe9 => DerefInstructionPointerNear(ptr, boundsCheck),
+                _ => ptr
+            };
         }
     }
 
@@ -345,12 +343,16 @@ public class Utils
     public void Log(string text, Color customColor) { if (_logLevel <= LogLevel.Information) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
     public void Log(string text, LogLevel verbosity) { if (verbosity >= _logLevel) _logger.WriteLineAsync($"[{_name}] {text}", _color); }
     public void Log(string text, Color customColor, LogLevel verbosity) { if (verbosity >= _logLevel) _logger.WriteLineAsync($"[{_name}] {text}", customColor); }
+    
     public nuint GetDirectAddress(int offset) => (nuint)(_baseAddress + offset);
     public nuint GetAddressMayThunk(int offset) => TryDerefInstructionPointer(GetDirectAddress(offset));
     public nuint GetIndirectAddressShort(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 1);
     public nuint GetIndirectAddressShort2(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 2);
     public nuint GetIndirectAddressLong(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 3);
     public nuint GetIndirectAddressLong4(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 4);
+
+    public nuint GetAddressMayThunkAbsolute(nuint ptr) => TryDerefInstructionPointer(ptr, false);
+    
     public IHook<T> MakeHooker<T>(T delegateMethod, long address) => _hooks.CreateHook(delegateMethod, address).Activate();
     public T MakeWrapper<T>(long address) => _hooks.CreateWrapper<T>(address, out _);
 
