@@ -350,6 +350,11 @@ namespace p3rpc.commonmodutils
         public nuint GetIndirectAddressLong(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 3);
         public nuint GetIndirectAddressLong4(int offset) => GetGlobalAddress((nint)_baseAddress + offset + 4);
         
+        public nuint GetIndirectAddressShortMayThunk(int offset) => TryDerefInstructionPointer(GetGlobalAddress((nint)_baseAddress + offset + 1));
+        public nuint GetIndirectAddressShort2MayThunk(int offset) => TryDerefInstructionPointer(GetGlobalAddress((nint)_baseAddress + offset + 2));
+        public nuint GetIndirectAddressLongMayThunk(int offset) => TryDerefInstructionPointer(GetGlobalAddress((nint)_baseAddress + offset + 3));
+        public nuint GetIndirectAddressLong4MayThunk(int offset) => TryDerefInstructionPointer(GetGlobalAddress((nint)_baseAddress + offset + 4));
+        
         public nuint GetAddressMayThunkAbsolute(nuint ptr) => TryDerefInstructionPointer(ptr, false);
         
         public IHook<T> MakeHooker<T>(T delegateMethod, long address) => _hooks.CreateHook(delegateMethod, address).Activate();
