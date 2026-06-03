@@ -4,6 +4,7 @@ using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using SharedScans.Interfaces;
 using UE.Toolkit.Core.Types;
+using UE.Toolkit.Core.Types.Unreal.Factories;
 using UE.Toolkit.Core.Types.Unreal.UE5_4_4;
 using UE.Toolkit.Interfaces;
 
@@ -15,23 +16,33 @@ namespace p3rpc.commonmodutils
     /// For Unreal Engine games (Persona 3 Reload, SMTVV, Persona 4 Revival, Persona 6 etc.)
     /// Uses Ryo's UE.Toolkit: https://github.com/RyoTune/UE.Toolkit. Supersedes UnrealContext.
     /// </summary>
-    public class UnrealToolkitContext : Context
+    public class UnrealToolkitContext(
+        long baseAddress,
+        IConfigurable config,
+        ILogger logger,
+        IStartupScanner startupScanner,
+        IReloadedHooks hooks,
+        string modLocation,
+        Utils utils,
+        Memory memory,
+        ISharedScans sharedScans,
+        IUnrealStrings toolkitStrings,
+        IUnrealObjects toolkitObjects,
+        IUnrealMemory toolkitMemory,
+        IUnrealClasses toolkitClasses,
+        IUnrealFactory toolkitFactory,
+        IUnrealState toolkitState,
+        IUnrealSpawning toolkitSpawning)
+        : Context(baseAddress, config, logger, startupScanner, hooks, modLocation, utils, memory, sharedScans)
     {
-        public IUnrealStrings _toolkitStrings { get; private set; }
-        public IUnrealObjects _toolkitObjects { get; private set; }
-        public IUnrealMemory _toolkitMemory { get; private set; }
-        public IUnrealClasses _toolkitClasses { get; private set; }
-        public UnrealToolkitContext(long baseAddress, IConfigurable config, ILogger logger, IStartupScanner startupScanner, 
-            IReloadedHooks hooks, string modLocation, Utils utils, Memory memory, ISharedScans sharedScans, 
-            IUnrealStrings toolkitStrings, IUnrealObjects toolkitObjects, IUnrealMemory toolkitMemory,
-            IUnrealClasses toolkitClasses)
-            : base(baseAddress, config, logger, startupScanner, hooks, modLocation, utils, memory, sharedScans)
-        {
-            _toolkitStrings = toolkitStrings;
-            _toolkitObjects = toolkitObjects;
-            _toolkitMemory = toolkitMemory;
-            _toolkitClasses = toolkitClasses;
-        }
+        
+        public IUnrealStrings _toolkitStrings { get; init; } = toolkitStrings;
+        public IUnrealObjects _toolkitObjects { get; init; } = toolkitObjects;
+        public IUnrealMemory _toolkitMemory { get; init; } = toolkitMemory;
+        public IUnrealClasses _toolkitClasses { get; init; } = toolkitClasses;
+        public IUnrealFactory _toolkitFactory { get; init; } = toolkitFactory;
+        public IUnrealState _toolkitState { get; init; } = toolkitState;
+        public IUnrealSpawning _toolkitSpawning { get; init; } = toolkitSpawning;
 
         public string GetFName(FName name) => name.ToString();
         public unsafe string GetObjectName(UObjectBase* obj) => obj->NamePrivate.ToString();
