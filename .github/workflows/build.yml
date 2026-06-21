@@ -106,7 +106,7 @@ jobs:
     - name: Push to NuGet (on Tag)
       if: env.IS_RELEASE == 'true'
       run: |
-        if ([string]::IsNullOrEmpty("${{ steps.login.outputs.NUGET_API_KEY }}))
+        if ([string]::IsNullOrEmpty("${{ steps.login.outputs.NUGET_API_KEY }}"))
         {
             Write-Host "NuGet Repository Key (GitHub Secrets -> NUGET_KEY) Not Specified. Skipping."
             return
