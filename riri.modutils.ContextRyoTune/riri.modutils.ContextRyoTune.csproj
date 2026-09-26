@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+
+        <!-- Create NuGet Package and include your Documentation/comments inside. -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+
+        <!-- Set to the same as your project name/namespace -->
+        <PackageId>riri.modutils.ContextRyoTune</PackageId>
+
+        <!-- Use Semantic Versioning -->
+        <Version>2.0.0</Version>
+        <Authors>Rirurin</Authors>
+
+        <!-- Description of your Package -->
+        <Description>Base shared state definition for mods that use RyoTune.Reloaded</Description>
+
+        <!-- Link to your Source Code [GitHub Page, etc.] -->
+        <PackageProjectUrl>https://github.com/rirurin/p3rpc.commonmodutils</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/rirurin/p3rpc.commonmodutils</RepositoryUrl>
+
+        <!-- URL to the icon seen for your package in NuGet Search -->
+        <PackageIconUrl>https://avatars1.githubusercontent.com/u/45473408</PackageIconUrl>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" />
+        <PackageReference Include="RyoTune.Reloaded" Version="4.2.1" />
+        <ProjectReference Include="..\riri.modutils.ContextBase\riri.modutils.ContextBase.csproj" />
+    </ItemGroup>
+
+</Project>
