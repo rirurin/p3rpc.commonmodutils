@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using Reloaded.Mod.Interfaces;
 using riri.modutils.ContextBase;
+using riri.yamlscans.ReloadedII;
 using RyoTune.Reloaded;
 using ILogger = Reloaded.Mod.Interfaces.ILogger;
 
@@ -55,7 +56,7 @@ public class RyoTuneLogger : ILoggerContext
 }
 
 /// <summary>
-/// Base context
+/// Base context for projects that use RyoTune.Reloaded
 /// </summary>
 public class RyoTuneContext : BaseContext
 {
@@ -71,6 +72,7 @@ public class RyoTuneContext : BaseContext
     public RyoTuneContext(IModConfig modConfig, IModLoader modLoader, ILogger log, IConfigurable userConfig, Color? color, bool? useAsyncLog)
     {
         Project.Initialize(modConfig, modLoader, log, color ?? Color.White, useAsyncLog ?? false);
+        YamlScans.Initialize(modConfig, modLoader);
         Logger = new RyoTuneLogger();
         ConfigInner = userConfig;
     }
