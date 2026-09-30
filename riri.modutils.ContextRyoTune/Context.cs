@@ -61,7 +61,7 @@ public class RyoTuneLogger : ILoggerContext
 public class RyoTuneContext : BaseContext
 {
     /// <inheritdoc/>
-    public override string ModId => Project.Instance.AppId;
+    public override string ModId => Project.Instance.Id;
 
     /// <inheritdoc/>
     public override string ModName => Project.Instance.Name;
@@ -71,6 +71,8 @@ public class RyoTuneContext : BaseContext
     /// </summary>
     public RyoTuneContext(IModConfig modConfig, IModLoader modLoader, ILogger log, IConfigurable userConfig, Color? color, bool? useAsyncLog)
     {
+        ModConfig = modConfig;
+        ModLoader = modLoader;
         Project.Initialize(modConfig, modLoader, log, color ?? Color.White, useAsyncLog ?? false);
         YamlScans.Initialize(modConfig, modLoader);
         Logger = new RyoTuneLogger();

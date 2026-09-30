@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using Reloaded.Mod.Interfaces;
+using Reloaded.Mod.Interfaces.Internal;
 
 namespace riri.modutils.ContextBase;
 
@@ -151,6 +152,14 @@ public interface IContext
     /// The logger context
     /// </summary>
     ILoggerContext? Logger { get; }
+    /// <summary>
+    /// The mod config for the current Reloaded mod. Includes information such as mod name, version and description.
+    /// </summary>
+    IModConfig? ModConfig { get; }
+    /// <summary>
+    /// Handles interactions with the Reloaded mod loader.
+    /// </summary>
+    IModLoader? ModLoader { get; }
 }
 
 /// <summary>
@@ -171,6 +180,12 @@ public abstract class BaseContext : IContext
     /// Make a public property for "Config" in your subclass of Context that returns your mod's Config type.
     /// </summary>
     protected IConfigurable? ConfigInner { get; set; }
+    
+    /// <inheritdoc/>
+    public IModConfig? ModConfig { get; protected init; }
+    
+    /// <inheritdoc/>
+    public IModLoader? ModLoader { get; protected init; }
 
     /// <summary>
     /// Called when the game's config is updated (<c>ConfigurationUpdated</c> is called from your Reloaded mod).

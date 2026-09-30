@@ -1,4 +1,5 @@
-﻿using riri.modutils.ContextBase;
+﻿using Reloaded.Mod.Interfaces;
+using riri.modutils.ContextBase;
 
 namespace riri.modutils.StateManagement;
 
@@ -32,4 +33,30 @@ public abstract class StateObject<TContext>(
         module = Modules.TryGetValue(typeof(TModule).Name, out var moduleRaw) && moduleRaw.ShouldLoad() ? (TModule)moduleRaw : null;
         return module != null;
     }
+    
+    /// <summary>
+    /// Called by the Reloaded mod loader when a mod is loading
+    /// </summary>
+    /// <param name="mod">Controls for the loading mod</param>
+    /// <param name="modConfig">Configuration for the loading mod</param>
+    public virtual void OnModLoading(IMod mod, IModConfig modConfig) {}
+    
+    /// <summary>
+    /// Called by the Reloaded mod loader when a mod has finished loading
+    /// </summary>
+    /// <param name="mod">Controls for the loaded mod</param>
+    /// <param name="modConfig">Configuration for the loaded mod</param>
+    public virtual void OnModLoaded(IMod mod, IModConfig modConfig) {}
+    
+    /// <summary>
+    /// Called by the Reloaded mod loader when a mod is unloading 
+    /// </summary>
+    /// <param name="mod">Controls for the unloaded mod</param>
+    /// <param name="modConfig">Configuration for the unloaded mod</param>
+    public virtual void OnModUnloading(IMod mod, IModConfig modConfig) {}
+    
+    /// <summary>
+    /// Called by the Reloaded mod loader when the mod loader has finished initialization
+    /// </summary>
+    public virtual void OnModLoaderInitialized() {}
 }

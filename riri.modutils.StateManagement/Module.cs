@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using riri.modutils.ContextBase;
 using Reloaded.Mod.Interfaces;
+using Reloaded.Mod.Interfaces.Internal;
 
 namespace riri.modutils.StateManagement;
 
@@ -83,6 +84,13 @@ public class ModuleRuntime<TContext> : StateObject<TContext> where TContext : Ba
     /// <exception cref="ModuleConstructorNotFoundException">Called if the default constructor is missing</exception>
     public ModuleRuntime(TContext context, Assembly assembly) : base(context, [])
     {
+        if (Context.ModLoader != null)
+        {
+            Context.ModLoader.ModLoading += OnModLoadingInner;
+            Context.ModLoader.ModLoaded += OnModLoadedInner;
+            Context.ModLoader.ModUnloading += OnModUnloadingInner;
+            Context.ModLoader.OnModLoaderInitialized += OnModLoaderInitializedInner;
+        }
         var definedModules = assembly.GetTypes().Where(
             x => x.IsSubclassOf(typeof(ModuleBase<TContext>)));
         foreach (var moduleType in definedModules)
@@ -123,7 +131,42 @@ public class ModuleRuntime<TContext> : StateObject<TContext> where TContext : Ba
             else
             {
                 module.Load();
+                module.PostLoad();
             }
         }
+    }
+
+    private void OnModLoadingInner(IModV1 modv1, IModConfigV1 modConfigv1)
+    {
+        var mod = (IMod)modv1;
+        var config = (IModConfig)modConfigv1;
+        OnModLoading(mod, config);
+        foreach (var (_, module) in Modules)
+            module.OnModLoading(mod, config);
+    }
+
+    private void OnModLoadedInner(IModV1 modv1, IModConfigV1 modConfigv1)
+    {
+        var mod = (IMod)modv1;
+        var config = (IModConfig)modConfigv1;
+        OnModLoaded(mod, config);
+        foreach (var (_, module) in Modules)
+            module.OnModLoaded(mod, config);
+    }
+
+    private void OnModUnloadingInner(IModV1 modv1, IModConfigV1 modConfigv1)
+    {
+        var mod = (IMod)modv1;
+        var config = (IModConfig)modConfigv1;
+        OnModUnloading(mod, config);
+        foreach (var (_, module) in Modules)
+            module.OnModUnloading(mod, config);
+    }
+
+    private void OnModLoaderInitializedInner()
+    {
+        OnModLoaderInitialized();
+        foreach (var (_, module) in Modules)
+            module.OnModLoaderInitialized();
     }
 }
