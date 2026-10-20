@@ -69,10 +69,11 @@ public class RyoTuneContext : BaseContext
     /// <summary>
     /// Constructor for RyoTuneContext
     /// </summary>
-    public RyoTuneContext(IModConfig modConfig, IModLoader modLoader, ILogger log, IConfigurable userConfig, Color? color, bool? useAsyncLog)
+    public RyoTuneContext(IModConfig modConfig, IModLoader modLoader, ILogger log, IConfigurable userConfig, IMod mod, Color? color, bool? useAsyncLog)
     {
         ModConfig = modConfig;
         ModLoader = modLoader;
+        Mod = mod;
         Project.Initialize(modConfig, modLoader, log, color ?? Color.White, useAsyncLog ?? false);
         YamlScans.Initialize(modConfig, modLoader);
         Logger = new RyoTuneLogger();

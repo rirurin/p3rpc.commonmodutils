@@ -95,6 +95,9 @@ public sealed class Runtime
         Assert.IsTrue(runtime.GetModule<Module0>(out var module0));
         Assert.IsTrue(runtime.GetModule<Module1>(out var module1));
         Assert.IsTrue(runtime.GetModule<Module2>(out var module2));
+        runtime.MustGetModule<Module0>();
+        runtime.MustGetModule<Module1>();
+        runtime.MustGetModule<Module2>();
         Assert.IsFalse(runtime.GetModule<Module3>(out _));
         
         Assert.IsTrue(module0!.GetModule<Module1>(out _));

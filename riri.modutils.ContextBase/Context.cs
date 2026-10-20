@@ -160,6 +160,10 @@ public interface IContext
     /// Handles interactions with the Reloaded mod loader.
     /// </summary>
     IModLoader? ModLoader { get; }
+    /// <summary>
+    /// The base mod singleton.
+    /// </summary>
+    IMod? Mod { get; }
 }
 
 /// <summary>
@@ -186,6 +190,9 @@ public abstract class BaseContext : IContext
     
     /// <inheritdoc/>
     public IModLoader? ModLoader { get; protected init; }
+    
+    /// <inheritdoc/>
+    public IMod? Mod { get; protected init; }
 
     /// <summary>
     /// Called when the game's config is updated (<c>ConfigurationUpdated</c> is called from your Reloaded mod).

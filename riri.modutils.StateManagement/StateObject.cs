@@ -30,9 +30,23 @@ public abstract class StateObject<TContext>(
     /// <returns>True if the moduled was loaded, otherwise false</returns>
     public bool GetModule<TModule>(out TModule? module) where TModule : ModuleBase<TContext>
     {
-        module = Modules.TryGetValue(typeof(TModule).Name, out var moduleRaw) && moduleRaw.ShouldLoad() ? (TModule)moduleRaw : null;
+        module = GetModuleInner<TModule>();
         return module != null;
     }
+
+    private TModule? GetModuleInner<TModule>() where TModule : ModuleBase<TContext>
+        => Modules.TryGetValue(typeof(TModule).Name, out var moduleRaw) 
+           && moduleRaw.ShouldLoad() ? (TModule)moduleRaw : null;
+
+    /// <summary>
+    /// Get a required module given a data type. If the module is not loaded, the function will throw an exception.
+    /// This should only be used to get modules that will always be loaded.
+    /// </summary>
+    /// <typeparam name="TModule">Data type for the module</typeparam>
+    /// <returns>The module instance if it was loaded</returns>
+    /// <exception cref="Exception">Throws if the module was not found</exception>
+    public TModule MustGetModule<TModule>() where TModule : ModuleBase<TContext>
+        => GetModuleInner<TModule>() ?? throw new Exception($"Could not retrieve the required module \"{nameof(TModule)}\"");
     
     /// <summary>
     /// Called by the Reloaded mod loader when a mod is loading
